@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const PALETTE = {
   blushRose: "#DC4F7C",
@@ -174,8 +174,7 @@ function Card({ children, style = {}, accent }) {
     <div style={{
       background: PALETTE.cardBg,
       border: `1.5px solid ${accent ? accent + "33" : PALETTE.cardBorder}`,
-      borderRadius: 20,
-      padding: 20,
+      borderRadius: 20, padding: 20,
       boxShadow: "0 2px 16px rgba(220,79,124,0.06)",
       ...style
     }}>{children}</div>
@@ -201,14 +200,39 @@ function AddRow({ placeholder, onAdd, accentColor }) {
   return (
     <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
       <input value={val} onChange={e => setVal(e.target.value)}
-        onKeyDown={e => { if (e.key === "Enter" && val.trim()) { onAdd(val.trim()); setVal(""); }}}
+        onKeyDown={e => { if (e.key === "Enter" && val.trim()) { onAdd(val.trim()); setVal(""); } }}
         placeholder={placeholder}
         style={{ flex: 1, background: "#fdf4f6", border: `1.5px solid ${PALETTE.cardBorder}`, borderRadius: 10, padding: "8px 12px", color: PALETTE.textDark, fontSize: 13, outline: "none" }}
       />
-      <button onClick={() => { if (val.trim()) { onAdd(val.trim()); setVal(""); }}}
+      <button onClick={() => { if (val.trim()) { onAdd(val.trim()); setVal(""); } }}
         style={{ background: accentColor, color: "#fff", border: "none", borderRadius: 10, padding: "8px 14px", fontWeight: 900, fontSize: 16, cursor: "pointer" }}>+</button>
     </div>
   );
+}
+
+// ── SAVE HOOK ──
+function useDashboard() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/dashboard")
+      .then(r => r.json())
+      .then(d => { setData(d); setLoading(false); })
+      .catch(() => { setData({}); setLoading(false); });
+  }, []);
+
+  const save = (updates) => {
+    const next = { ...data, ...updates };
+    setData(next);
+    fetch("/api/dashboard", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(next)
+    });
+  };
+
+  return { data, loading, save };
 }
 
 // ── WEEK VIEW ──
@@ -244,7 +268,7 @@ function WeekView({ data, save }) {
         {routines.map(r => (
           <div key={r.id} onClick={() => toggleR(r.id)} style={{
             display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 12, marginBottom: 6,
-            background: r.done ? "rgba(220,79,124,0.08)" : "#fdf4f6", cursor: "pointer", transition: "all 0.15s"
+            background: r.done ? "rgba(220,79,124,0.08)" : "#fdf4f6", cursor: "pointer"
           }}>
             <Check checked={r.done} onChange={() => toggleR(r.id)} accentColor={PALETTE.blushRose} />
             <span style={{ fontSize: 14, color: r.done ? PALETTE.textLight : PALETTE.textDark, textDecoration: r.done ? "line-through" : "none" }}>{r.text}</span>
@@ -255,12 +279,12 @@ function WeekView({ data, save }) {
       <Card>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div style={{ fontWeight: 900, fontSize: 16, color: PALETTE.textDark }}>📋 This Week</div>
-          <span style={{ color: PALETTE.textLight, fontSize: 12 }}>{tasks.filter(t=>t.done).length}/{tasks.length}</span>
+          <span style={{ color: PALETTE.textLight, fontSize: 12 }}>{tasks.filter(t => t.done).length}/{tasks.length}</span>
         </div>
         {tasks.map(t => (
           <div key={t.id} style={{
             display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 12, marginBottom: 6,
-            background: t.done ? "#fdf4f6" : "#fdf4f6", border: `1px solid ${PALETTE.cardBorder}`
+            background: "#fdf4f6", border: `1px solid ${PALETTE.cardBorder}`
           }}>
             <Check checked={t.done} onChange={() => toggleT(t.id)} accentColor={PALETTE.princetonOrange} />
             <span style={{ flex: 1, fontSize: 14, color: t.done ? PALETTE.textLight : PALETTE.textDark, textDecoration: t.done ? "line-through" : "none" }}>{t.text}</span>
@@ -269,7 +293,7 @@ function WeekView({ data, save }) {
           </div>
         ))}
         <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
-          {["personal","work","church","content"].map(cat => (
+          {["personal", "work", "church", "content"].map(cat => (
             <button key={cat} onClick={() => setNewCat(cat)} style={{
               padding: "3px 10px", borderRadius: 999, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, cursor: "pointer", border: "none",
               background: newCat === cat ? PALETTE.princetonOrange : "#f5e0e5",
@@ -358,15 +382,11 @@ function Goals60({ data, save }) {
     const key = `${dayNum}-${track}`;
     save({ completedDays: { ...completed, [key]: !completed[key] } });
   };
-
   const isChecked = (dayNum, track) => !!completed[`${dayNum}-${track}`];
-
   const pct = Math.round((CURRENT_DAY / TOTAL_DAYS) * 100);
-
   const todayData = ALL_DAYS.find(d => d.day === CURRENT_DAY);
   const upcomingDays = ALL_DAYS.filter(d => d.day > CURRENT_DAY && d.day <= CURRENT_DAY + 7);
   const pastDays = ALL_DAYS.filter(d => d.day < CURRENT_DAY).reverse();
-
   const trackColor = { home: PALETTE.olive, relationships: PALETTE.blushRose, creativity: PALETTE.princetonOrange };
   const trackLabel = { home: "🏠 Home", relationships: "💗 Relationships", creativity: "🧵 Creativity" };
 
@@ -379,17 +399,13 @@ function Goals60({ data, save }) {
         borderRadius: 16, padding: 16, marginBottom: 12,
         boxShadow: isCurrent ? "0 4px 20px rgba(220,79,124,0.12)" : "none"
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: d.milestone ? 8 : tracks.length ? 10 : 0 }}>
-          <span style={{ fontSize: 11, fontWeight: 900, color: isCurrent ? PALETTE.blushRose : PALETTE.textLight, textTransform: "uppercase", letterSpacing: 1 }}>
-            Day {d.day}
-          </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+          <span style={{ fontSize: 11, fontWeight: 900, color: isCurrent ? PALETTE.blushRose : PALETTE.textLight, textTransform: "uppercase", letterSpacing: 1 }}>Day {d.day}</span>
           <span style={{ fontSize: 11, color: PALETTE.textLight }}>· {d.date}</span>
           {isCurrent && <span style={{ marginLeft: "auto", fontSize: 11, background: PALETTE.blushRose, color: "#fff", borderRadius: 99, padding: "2px 8px", fontWeight: 700 }}>TODAY</span>}
         </div>
         {d.milestone && (
-          <div style={{ background: "rgba(252,233,171,0.5)", border: `1px solid ${PALETTE.vanillaCustard}`, borderRadius: 10, padding: "6px 12px", marginBottom: tracks.length ? 8 : 0, fontSize: 13, fontWeight: 700, color: "#7a5500" }}>
-            ⭐ {d.milestone}
-          </div>
+          <div style={{ background: "rgba(252,233,171,0.5)", border: `1px solid ${PALETTE.vanillaCustard}`, borderRadius: 10, padding: "6px 12px", marginBottom: 8, fontSize: 13, fontWeight: 700, color: "#7a5500" }}>⭐ {d.milestone}</div>
         )}
         {tracks.map(track => (
           <div key={track} onClick={() => toggleDay(d.day, track)} style={{
@@ -403,16 +419,13 @@ function Goals60({ data, save }) {
             </div>
           </div>
         ))}
-        {!tracks.length && !d.milestone && (
-          <div style={{ fontSize: 13, color: PALETTE.textLight }}>Morning routine only — rest day ✨</div>
-        )}
+        {!tracks.length && !d.milestone && <div style={{ fontSize: 13, color: PALETTE.textLight }}>Morning routine only — rest day ✨</div>}
       </div>
     );
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Header */}
       <Card accent={PALETTE.tomatoJam}>
         <div style={{ fontWeight: 900, fontSize: 18, color: PALETTE.textDark, marginBottom: 4 }}>🎯 60-Day Challenge</div>
         <div style={{ color: PALETTE.textMid, fontSize: 12, marginBottom: 12 }}>{START_DATE} – {END_DATE}</div>
@@ -424,10 +437,8 @@ function Goals60({ data, save }) {
           <div style={{ width: `${pct}%`, height: 8, borderRadius: 99, background: PALETTE.tomatoJam }} />
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: PALETTE.textLight }}>
-          <span>{pct}% complete</span>
-          <span>{TOTAL_DAYS - CURRENT_DAY} days to go</span>
+          <span>{pct}% complete</span><span>{TOTAL_DAYS - CURRENT_DAY} days to go</span>
         </div>
-        {/* Track legend */}
         <div style={{ display: "flex", gap: 12, marginTop: 14, flexWrap: "wrap" }}>
           {Object.entries(trackLabel).map(([k, v]) => (
             <div key={k} style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -437,36 +448,17 @@ function Goals60({ data, save }) {
           ))}
         </div>
       </Card>
-
-      {/* View toggle */}
       <div style={{ display: "flex", gap: 8 }}>
-        {[["today","Today"], ["upcoming","Upcoming"], ["past","Past Days"]].map(([id, label]) => (
+        {[["today", "Today"], ["upcoming", "Upcoming"], ["past", "Past Days"]].map(([id, label]) => (
           <button key={id} onClick={() => setView(id)} style={{
             padding: "7px 16px", borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: "pointer", border: "none",
-            background: view === id ? PALETTE.tomatoJam : "#f0d5dc",
-            color: view === id ? "#fff" : PALETTE.textMid
+            background: view === id ? PALETTE.tomatoJam : "#f0d5dc", color: view === id ? "#fff" : PALETTE.textMid
           }}>{label}</button>
         ))}
       </div>
-
-      {/* Today */}
       {view === "today" && todayData && <DayCard d={todayData} isCurrent={true} />}
-
-      {/* Upcoming */}
-      {view === "upcoming" && (
-        <div>
-          <div style={{ fontSize: 12, color: PALETTE.textLight, marginBottom: 12 }}>Next 7 days</div>
-          {upcomingDays.map(d => <DayCard key={d.day} d={d} isCurrent={false} />)}
-        </div>
-      )}
-
-      {/* Past */}
-      {view === "past" && (
-        <div>
-          <div style={{ fontSize: 12, color: PALETTE.textLight, marginBottom: 12 }}>Previous days — check off what you completed</div>
-          {pastDays.map(d => <DayCard key={d.day} d={d} isCurrent={false} />)}
-        </div>
-      )}
+      {view === "upcoming" && <div>{upcomingDays.map(d => <DayCard key={d.day} d={d} isCurrent={false} />)}</div>}
+      {view === "past" && <div>{pastDays.map(d => <DayCard key={d.day} d={d} isCurrent={false} />)}</div>}
     </div>
   );
 }
@@ -554,7 +546,6 @@ function Finances({ data, save }) {
   const addBill = text => save({ bills: [...bills, { id: Date.now().toString(), label: text, amount: 0, due: "—", paid: false }] });
   const deleteBill = id => save({ bills: bills.filter(b => b.id !== id) });
   const resetAll = () => save({ bills: bills.map(b => ({ ...b, paid: false })) });
-
   const paidCount = bills.filter(b => b.paid).length;
   const totalDue = bills.reduce((a, b) => a + b.amount, 0);
   const totalPaid = bills.filter(b => b.paid).reduce((a, b) => a + b.amount, 0);
@@ -565,7 +556,7 @@ function Finances({ data, save }) {
         <div style={{ fontWeight: 900, fontSize: 16, color: PALETTE.textDark, marginBottom: 4 }}>💰 Monthly Bills</div>
         <div style={{ fontSize: 30, fontWeight: 900, color: PALETTE.tomatoJam }}>${totalPaid.toLocaleString()} <span style={{ fontSize: 16, color: PALETTE.textLight }}>/ ${totalDue.toLocaleString()} paid</span></div>
         <div style={{ background: "#f0d5dc", borderRadius: 99, height: 6, marginTop: 12 }}>
-          <div style={{ width: totalDue ? `${(totalPaid/totalDue)*100}%` : "0%", height: 6, borderRadius: 99, background: PALETTE.tomatoJam, transition: "width 0.3s" }} />
+          <div style={{ width: totalDue ? `${(totalPaid / totalDue) * 100}%` : "0%", height: 6, borderRadius: 99, background: PALETTE.tomatoJam, transition: "width 0.3s" }} />
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
           <span style={{ fontSize: 12, color: PALETTE.textLight }}>{paidCount}/{bills.length} paid</span>
@@ -614,7 +605,7 @@ function BucketList({ data, save }) {
           <span style={{ fontSize: 20, color: PALETTE.textLight }}>/{items.length} done</span>
         </div>
         <div style={{ background: "#f0d5dc", borderRadius: 99, height: 8, width: 120 }}>
-          <div style={{ width: `${items.length ? (doneCount/items.length)*100 : 0}%`, height: 8, borderRadius: 99, background: PALETTE.blushRose }} />
+          <div style={{ width: `${items.length ? (doneCount / items.length) * 100 : 0}%`, height: 8, borderRadius: 99, background: PALETTE.blushRose }} />
         </div>
       </div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -647,8 +638,13 @@ function BucketList({ data, save }) {
 // ── MAIN ──
 export default function App() {
   const [tab, setTab] = useState("week");
-  const [data, setData] = useState({});
-  const save = updates => setData(prev => ({ ...prev, ...updates }));
+  const { data, loading, save } = useDashboard();
+
+  if (loading) return (
+    <div style={{ minHeight: "100vh", background: PALETTE.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ color: PALETTE.textLight, fontSize: 16 }}>Loading your dashboard... 🌸</div>
+    </div>
+  );
 
   return (
     <div style={{ minHeight: "100vh", background: PALETTE.bg, color: PALETTE.textDark, maxWidth: 680, margin: "0 auto", fontFamily: "'Georgia', 'DM Sans', serif" }}>
@@ -664,7 +660,6 @@ export default function App() {
           </div>
         </div>
       </div>
-
       <div style={{ padding: "0 20px 20px", overflowX: "auto" }}>
         <div style={{ display: "flex", gap: 8, width: "max-content" }}>
           {TABS.map(t => (
@@ -680,7 +675,6 @@ export default function App() {
           ))}
         </div>
       </div>
-
       <div style={{ padding: "0 20px 80px" }}>
         {tab === "week" && <WeekView data={data} save={save} />}
         {tab === "habits" && <HabitTracker data={data} save={save} />}
